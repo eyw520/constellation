@@ -1,0 +1,9 @@
+{
+    "pythonVersion": "3.11",
+    "exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "**/migrations",
+        "**/.venv"
+    ]
+}
