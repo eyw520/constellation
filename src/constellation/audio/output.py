@@ -22,6 +22,7 @@ class SpeakerOutput:
         self._running = False
         self._thread: threading.Thread | None = None
         self._interrupted = threading.Event()
+        self._stream_lock = threading.Lock()
 
     def _playback_thread(self) -> None:
         while self._running:
@@ -35,13 +36,14 @@ class SpeakerOutput:
 
                 audio_array = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32767.0
 
-                if self._stream and not self._interrupted.is_set():
-                    self._stream.write(audio_array)
+                with self._stream_lock:
+                    if self._stream and not self._interrupted.is_set():
+                        self._stream.write(audio_array)
 
             except queue.Empty:
                 continue
             except Exception as e:
-                if self._running:
+                if self._running and not self._interrupted.is_set():
                     LOGGER.error(f"Playback error: {e}")
 
     def start(self) -> None:
@@ -93,12 +95,13 @@ class SpeakerOutput:
         self._interrupted.set()
         self._clear_queue()
 
-        if self._stream:
-            try:
-                self._stream.stop()
-                self._stream.start()
-            except Exception as e:
-                LOGGER.warning(f"Error restarting stream on interrupt: {e}")
+        with self._stream_lock:
+            if self._stream:
+                try:
+                    self._stream.abort()
+                    self._stream.start()
+                except Exception as e:
+                    LOGGER.warning(f"Error restarting stream on interrupt: {e}")
 
         self._interrupted.clear()
 
