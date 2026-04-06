@@ -1,10 +1,8 @@
 from collections import deque
 from enum import IntEnum
-import logging
 import struct
 
-
-logger = logging.getLogger(__name__)
+from constellation.logger import LOGGER
 
 
 class VADState(IntEnum):
@@ -37,7 +35,7 @@ class WebRTCVAD:
             rms = (sum_squares / num_samples) ** 0.5
             return rms / 32768.0
         except Exception as e:
-            logger.error(f"RMS calculation failed: {e}")
+            LOGGER.error(f"RMS calculation failed: {e}")
             return 0.0
 
     def _update_adaptive_threshold(self, energy: float) -> None:
@@ -66,7 +64,7 @@ class WebRTCVAD:
 
             return self.state
         except Exception as e:
-            logger.error(f"VAD processing failed: {e}")
+            LOGGER.error(f"VAD processing failed: {e}")
             return self.state
 
     def reset(self) -> None:

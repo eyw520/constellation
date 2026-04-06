@@ -60,10 +60,7 @@ class AssistantMessageWithTools(BaseModel):
         }
 
     def to_anthropic(self) -> dict[str, Any]:
-        content = [
-            {"type": "tool_use", "id": tc.id, "name": tc.name, "input": tc.input}
-            for tc in self.tool_calls
-        ]
+        content = [{"type": "tool_use", "id": tc.id, "name": tc.name, "input": tc.input} for tc in self.tool_calls]
         return {"role": "assistant", "content": content}
 
 
@@ -71,9 +68,7 @@ class UserMessageWithToolResults(BaseModel):
     tool_results: list[ToolResultMessage]
 
     def to_openai(self) -> list[dict[str, Any]]:
-        return [
-            {"role": "tool", "tool_call_id": tr.tool_use_id, "content": tr.content} for tr in self.tool_results
-        ]
+        return [{"role": "tool", "tool_call_id": tr.tool_use_id, "content": tr.content} for tr in self.tool_results]
 
     def to_anthropic(self) -> dict[str, Any]:
         return {

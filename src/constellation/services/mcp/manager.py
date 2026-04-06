@@ -1,11 +1,8 @@
-import logging
 from typing import Any
 
+from constellation.logger import LOGGER
 from constellation.models.mcp import MCPServerConfig
 from constellation.services.mcp.client import MCPClient, MCPClientError
-
-
-logger = logging.getLogger(__name__)
 
 
 class MCPServerManagerError(Exception):
@@ -36,9 +33,9 @@ class MCPServerManager:
                 await client.connect()
                 self._clients[name] = client
                 tool_count = len(client.available_tools)
-                logger.info(f"Connected to MCP server '{name}' with {tool_count} tools")
+                LOGGER.info(f"Connected to MCP server '{name}' with {tool_count} tools")
             except Exception as e:
-                logger.warning(f"Failed to connect to MCP server '{name}': {e}")
+                LOGGER.warning(f"Failed to connect to MCP server '{name}': {e}")
 
         self._started = True
 
@@ -46,9 +43,9 @@ class MCPServerManager:
         for name, client in self._clients.items():
             try:
                 await client.close()
-                logger.debug(f"Disconnected from MCP server '{name}'")
+                LOGGER.debug(f"Disconnected from MCP server '{name}'")
             except Exception as e:
-                logger.warning(f"Error closing MCP server '{name}': {e}")
+                LOGGER.warning(f"Error closing MCP server '{name}': {e}")
 
         self._clients.clear()
         self._started = False

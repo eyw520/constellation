@@ -1,7 +1,6 @@
 import asyncio
 from collections.abc import Generator
 import json
-import logging
 import queue
 import threading
 import time
@@ -14,15 +13,13 @@ from constellation.core.agent import Agent
 from constellation.core.context import ContextManager
 from constellation.core.turn import ConversationTurn, TurnRole, TurnState
 from constellation.engines.executor import EngineExecutor
+from constellation.logger import LOGGER
 from constellation.services.asr.deepgram import DeepgramASR
 from constellation.services.llm.chat import ChatLLM
 from constellation.services.llm.service import InferenceCancelledException
 from constellation.services.llm.types import ToolCallDict, ToolResultDict
 from constellation.services.tts.openai import OpenAITTS
 from constellation.services.vad.webrtc import VADState, WebRTCVAD
-
-
-logger = logging.getLogger(__name__)
 
 
 class VoiceSession:
@@ -72,7 +69,7 @@ class VoiceSession:
         self._processing_thread = threading.Thread(target=self._processing_loop, daemon=True)
         self._processing_thread.start()
 
-        logger.info("Voice session started")
+        LOGGER.info("Voice session started")
 
     async def stop(self) -> None:
         self._running = False
@@ -85,7 +82,7 @@ class VoiceSession:
             self._processing_thread.join(timeout=2.0)
 
         await self.agent.stop()
-        logger.info("Voice session stopped")
+        LOGGER.info("Voice session stopped")
 
     def _on_audio_for_vad(self, audio: bytes) -> None:
         current_state = self.vad.process(audio)
@@ -96,7 +93,7 @@ class VoiceSession:
             self._speech_end_time = None
 
             if self.speaker_output.is_playing():
-                logger.info("User speaking - interrupting playback")
+                LOGGER.info("User speaking - interrupting playback")
                 self._interrupt()
 
         self._last_vad_state = current_state
@@ -123,13 +120,13 @@ class VoiceSession:
 
                 time.sleep(0.05)
             except Exception as e:
-                logger.error(f"Processing loop error: {e}", exc_info=True)
+                LOGGER.error(f"Processing loop error: {e}", exc_info=True)
 
     def _process_transcript(self, transcript: str) -> None:
         if not self.llm or not self.context_manager or not self.engine_executor:
             return
 
-        logger.info(f"User: {transcript}")
+        LOGGER.info(f"User: {transcript}")
         print(f"\n[User] {transcript}")
 
         self._interrupt()
@@ -179,7 +176,7 @@ class VoiceSession:
                     elif type_ == "tool":
                         tool_calls.append(token)
             except InferenceCancelledException:
-                logger.info("LLM inference cancelled")
+                LOGGER.info("LLM inference cancelled")
 
         tts_stream = create_tts_stream()
 
@@ -197,14 +194,14 @@ class VoiceSession:
             content = "".join(content_tokens)
             if content:
                 assistant_turn.content = content
-                logger.info(f"Assistant: {content[:100]}...")
+                LOGGER.info(f"Assistant: {content[:100]}...")
                 print(f"[Assistant] {content}")
 
             self.llm.try_mark_turn_in_flight(assistant_turn.id)
             self.llm.try_mark_turn_complete(assistant_turn.id)
 
         except InferenceCancelledException:
-            logger.info("Response interrupted")
+            LOGGER.info("Response interrupted")
             return
 
         if tool_calls:
@@ -226,7 +223,7 @@ class VoiceSession:
             if not tool_name:
                 continue
 
-            logger.info(f"Tool call: {tool_name}({tool_input})")
+            LOGGER.info(f"Tool call: {tool_name}({tool_input})")
             print(f"[Tool] {tool_name}: {tool_input}")
 
             try:
@@ -236,7 +233,7 @@ class VoiceSession:
                     result = tool_registry.execute(tool_name, tool_input)
 
                 result_str = json.dumps(result) if isinstance(result, dict) else str(result)
-                logger.info(f"Tool result: {tool_name} -> {result_str[:100]}...")
+                LOGGER.info(f"Tool result: {tool_name} -> {result_str[:100]}...")
                 print(f"[Tool Result] {result_str[:200]}")
 
                 results.append({"tool_call_id": tool_call_id, "content": result_str})
@@ -245,11 +242,11 @@ class VoiceSession:
                     self.context_manager.add_tool_result(tool_name, result)
 
                 if isinstance(result, dict) and result.get("end_conversation"):
-                    logger.info(f"End conversation signal: {result.get('reason')}")
+                    LOGGER.info(f"End conversation signal: {result.get('reason')}")
                     self._running = False
 
             except Exception as e:
-                logger.error(f"Tool {tool_name} failed: {e}")
+                LOGGER.error(f"Tool {tool_name} failed: {e}")
                 error_content = json.dumps({"error": str(e)})
                 results.append({"tool_call_id": tool_call_id, "content": error_content})
 
@@ -260,7 +257,7 @@ class VoiceSession:
             return
 
         signal = self.agent.get_initiation_signal()
-        logger.info(f"Initiating conversation with signal: {signal}")
+        LOGGER.info(f"Initiating conversation with signal: {signal}")
 
         threading.Thread(
             target=lambda: self._process_transcript(signal),

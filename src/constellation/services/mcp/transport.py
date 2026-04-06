@@ -1,16 +1,13 @@
 from abc import ABC, abstractmethod
 import asyncio
 import json
-import logging
 import os
 
 from pydantic import TypeAdapter
 
+from constellation.logger import LOGGER
 from constellation.models.mcp import StdioTransport
 from constellation.services.mcp.types import JSONRPCRequest, JSONRPCResponse
-
-
-logger = logging.getLogger(__name__)
 
 
 class MCPTransportError(Exception):
@@ -107,7 +104,7 @@ class StdioMCPTransport(MCPTransportBase):
                 except Exception:
                     pass
             except Exception as e:
-                logger.warning(f"Error closing MCP transport: {e}")
+                LOGGER.warning(f"Error closing MCP transport: {e}")
                 try:
                     self._process.kill()
                 except Exception:

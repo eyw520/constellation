@@ -1,4 +1,3 @@
-import logging
 from threading import Thread
 from typing import Any
 
@@ -6,10 +5,9 @@ from deepgram import DeepgramClient
 from deepgram.clients.listen.v1.websocket.response import LiveResultResponse
 
 from constellation.audio.broadcaster import AudioSubscriber
+from constellation.logger import LOGGER
 from constellation.settings import SETTINGS
 
-
-logger = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16000
 CHANNELS = 1
@@ -42,11 +40,11 @@ class DeepgramASR(AudioSubscriber):
                 self._handle_transcript(data)
 
         def close_handler(data: Any) -> None:
-            logger.debug(f"Deepgram ASR connection closed: {data}")
+            LOGGER.debug(f"Deepgram ASR connection closed: {data}")
             self.dg_connection = None
 
         def error_handler(data: Any) -> None:
-            logger.error(f"Deepgram ASR error: {data}")
+            LOGGER.error(f"Deepgram ASR error: {data}")
 
         try:
             connection_params = {
@@ -66,9 +64,9 @@ class DeepgramASR(AudioSubscriber):
             self.dg_connection.on("Close", close_handler)
             self.dg_connection.on("Error", error_handler)
 
-            logger.info("Deepgram ASR connection established")
+            LOGGER.info("Deepgram ASR connection established")
         except Exception as e:
-            logger.error(f"Deepgram ASR setup failed: {e}")
+            LOGGER.error(f"Deepgram ASR setup failed: {e}")
             self.dg_connection = None
             self.dg_context = None
             raise
@@ -79,9 +77,9 @@ class DeepgramASR(AudioSubscriber):
 
         try:
             self.dg_context.__exit__(None, None, None)
-            logger.info("Deepgram ASR connection closed")
+            LOGGER.info("Deepgram ASR connection closed")
         except Exception as e:
-            logger.error(f"ASR module stop failed: {e}")
+            LOGGER.error(f"ASR module stop failed: {e}")
         finally:
             self.dg_connection = None
             self.dg_context = None
@@ -97,7 +95,7 @@ class DeepgramASR(AudioSubscriber):
             try:
                 self.dg_connection.send(bytes(self.buffer))
             except Exception as e:
-                logger.error(f"Deepgram ASR send failed: {e}")
+                LOGGER.error(f"Deepgram ASR send failed: {e}")
             finally:
                 self.buffer = bytearray(0)
                 self.frame_count = 0

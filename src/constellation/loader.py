@@ -1,13 +1,10 @@
-import logging
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from constellation.logger import LOGGER
 from constellation.models.config import AgentConfig
-
-
-logger = logging.getLogger(__name__)
 
 
 def load_agent_config(path: str | Path) -> AgentConfig:
@@ -23,7 +20,7 @@ def load_agent_config(path: str | Path) -> AgentConfig:
         raise ValueError(f"Empty agent config: {path}")
 
     config = AgentConfig(**data)
-    logger.info(f"Loaded agent config from {path}")
+    LOGGER.info(f"Loaded agent config from {path}")
     return config
 
 

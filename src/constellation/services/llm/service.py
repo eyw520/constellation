@@ -1,7 +1,6 @@
 from collections.abc import Generator, Sequence
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 import json
-import logging
 from queue import Empty, Queue
 from threading import Lock
 from typing import Any, TypeVar
@@ -21,8 +20,6 @@ from constellation.services.llm.types import (
 )
 from constellation.settings import SETTINGS
 
-
-logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 

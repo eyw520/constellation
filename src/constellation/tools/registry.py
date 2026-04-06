@@ -1,13 +1,10 @@
 import asyncio
 from collections.abc import Callable, Coroutine
 import inspect
-import logging
 from typing import Any
 
 from constellation.services.llm.types import LLMTool
 
-
-logger = logging.getLogger(__name__)
 
 ToolHandler = Callable[..., dict[str, Any] | Coroutine[Any, Any, dict[str, Any]]]
 

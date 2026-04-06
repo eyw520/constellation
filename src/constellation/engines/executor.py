@@ -1,11 +1,11 @@
 import asyncio
-import logging
 from threading import Thread
 import time
 from typing import TYPE_CHECKING
 
 from constellation.engines.async_engine import AsyncEngine, EngineConversationTurn
 from constellation.engines.sync_engine import SyncEngine
+from constellation.logger import LOGGER
 from constellation.models.task_tag import TaskTag, TaskTagDisable, TaskTagInvocation, TaskTagResult
 from constellation.services.llm.types import (
     AssistantMessageWithTools,
@@ -18,8 +18,6 @@ from constellation.services.llm.types import (
 if TYPE_CHECKING:
     from constellation.core.context import ContextManager
     from constellation.tools.registry import ToolRegistry
-
-logger = logging.getLogger(__name__)
 
 TaskTagMessages = tuple[AssistantMessageWithTools, UserMessageWithToolResults]
 
@@ -59,7 +57,7 @@ class EngineExecutor:
             engine_name = self._get_engine_name(engine, i)
 
             if self._context and self._context.is_engine_disabled(engine_name):
-                logger.debug(f"Skipping disabled engine: {engine_name}")
+                LOGGER.debug(f"Skipping disabled engine: {engine_name}")
                 continue
 
             start_time = time.time()
@@ -67,10 +65,10 @@ class EngineExecutor:
             try:
                 tags = engine.process(user_message, history)
                 duration_ms = int((time.time() - start_time) * 1000)
-                logger.debug(f"Engine {engine_name} completed in {duration_ms}ms with {len(tags)} tags")
+                LOGGER.debug(f"Engine {engine_name} completed in {duration_ms}ms with {len(tags)} tags")
                 all_tags.extend(tags)
             except Exception as e:
-                logger.error(f"Sync engine {engine_name} failed: {e}")
+                LOGGER.error(f"Sync engine {engine_name} failed: {e}")
 
         return all_tags
 
@@ -102,9 +100,9 @@ class EngineExecutor:
         try:
             await engine.process(user_message, history)
             duration_ms = int((time.time() - start_time) * 1000)
-            logger.info(f"Async engine {engine_name} completed in {duration_ms}ms")
+            LOGGER.info(f"Async engine {engine_name} completed in {duration_ms}ms")
         except Exception as e:
-            logger.error(f"Async engine {engine_name} failed: {e}")
+            LOGGER.error(f"Async engine {engine_name} failed: {e}")
 
     def process_task_tags(
         self,
@@ -124,20 +122,20 @@ class EngineExecutor:
             elif isinstance(tag, TaskTagDisable):
                 if tag.engine_name and self._context:
                     self._context.disable_engine(tag.engine_name)
-                    logger.info(f"Engine disabled: {tag.engine_name}")
+                    LOGGER.info(f"Engine disabled: {tag.engine_name}")
 
         return self._create_task_tag_messages(results, user_message)
 
     def _execute_engine_tool(self, tag: TaskTagInvocation) -> None:
         try:
             result = self._tool_registry.execute(tag.tool_name, tag.tool_input)
-            logger.info(f"TaskTag invoked {tag.tool_name}: {result}")
+            LOGGER.info(f"TaskTag invoked {tag.tool_name}: {result}")
 
             if self._context:
                 self._context.add_tool_result(tag.tool_name, result)
 
         except Exception as e:
-            logger.error(f"TaskTag invocation {tag.tool_name} failed: {e}")
+            LOGGER.error(f"TaskTag invocation {tag.tool_name} failed: {e}")
             if self._context:
                 self._context.add_tool_result(tag.tool_name, {"error": str(e)})
 

@@ -1,10 +1,7 @@
-import logging
-
+from constellation.logger import LOGGER
 from constellation.models.engine import AsyncEngineConfig
 from constellation.services.llm.service import LLMService
 
-
-logger = logging.getLogger(__name__)
 
 EngineConversationTurn = dict[str, str]
 
@@ -46,7 +43,7 @@ class AsyncEngine:
             messages = [TextMessage(role=LLMMessageRole.USER, content=full_prompt)]
             response = llm_service.get_response(messages, tools=None)
 
-            logger.info(f"AsyncEngine completed: {str(response)[:100]}...")
+            LOGGER.info(f"AsyncEngine completed: {str(response)[:100]}...")
 
         except Exception as e:
-            logger.error(f"AsyncEngine processing failed: {e}")
+            LOGGER.error(f"AsyncEngine processing failed: {e}")

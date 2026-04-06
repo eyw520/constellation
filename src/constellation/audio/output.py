@@ -1,13 +1,12 @@
 from collections.abc import Generator
-import logging
 import queue
 import threading
 
 import numpy as np
 import sounddevice as sd
 
+from constellation.logger import LOGGER
 
-logger = logging.getLogger(__name__)
 
 OUTPUT_SAMPLE_RATE = 24000
 CHANNELS = 1
@@ -43,7 +42,7 @@ class SpeakerOutput:
                 continue
             except Exception as e:
                 if self._running:
-                    logger.error(f"Playback error: {e}")
+                    LOGGER.error(f"Playback error: {e}")
 
     def start(self) -> None:
         if self._running:
@@ -62,7 +61,7 @@ class SpeakerOutput:
         self._thread = threading.Thread(target=self._playback_thread, daemon=True)
         self._thread.start()
 
-        logger.info(f"Speaker output started (sample_rate={self.sample_rate})")
+        LOGGER.info(f"Speaker output started (sample_rate={self.sample_rate})")
 
     def stop(self) -> None:
         self._running = False
@@ -78,7 +77,7 @@ class SpeakerOutput:
             self._thread = None
 
         self._clear_queue()
-        logger.info("Speaker output stopped")
+        LOGGER.info("Speaker output stopped")
 
     def play(self, audio: bytes) -> None:
         if not self._interrupted.is_set():
@@ -99,7 +98,7 @@ class SpeakerOutput:
                 self._stream.stop()
                 self._stream.start()
             except Exception as e:
-                logger.warning(f"Error restarting stream on interrupt: {e}")
+                LOGGER.warning(f"Error restarting stream on interrupt: {e}")
 
         self._interrupted.clear()
 

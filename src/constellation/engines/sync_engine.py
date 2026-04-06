@@ -1,15 +1,13 @@
 from enum import Enum
-import logging
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
+from constellation.logger import LOGGER
 from constellation.models.engine import SyncEngineConfig
 from constellation.models.task_tag import TaskTag, TaskTagDisable, TaskTagResult
 from constellation.services.llm.service import LLMService
 
-
-logger = logging.getLogger(__name__)
 
 EngineConversationTurn = dict[str, str]
 
@@ -74,10 +72,10 @@ class SyncEngine:
                 prompt=full_prompt,
                 response_type=GateResponse,
             )
-            logger.debug(f"SyncEngine gate evaluated: {response.result}")
+            LOGGER.debug(f"SyncEngine gate evaluated: {response.result}")
             return response.result
         except Exception as e:
-            logger.error(f"SyncEngine gate evaluation failed: {e}")
+            LOGGER.error(f"SyncEngine gate evaluation failed: {e}")
             return True
 
     def process(
@@ -89,7 +87,7 @@ class SyncEngine:
 
         try:
             if not self._evaluate_gate(user_message, history):
-                logger.debug("SyncEngine gate returned false, skipping classification")
+                LOGGER.debug("SyncEngine gate returned false, skipping classification")
                 return []
 
             llm_service = LLMService(model=self.config.model)
@@ -105,10 +103,10 @@ class SyncEngine:
             task_tag = self.config.task_tag_mapping.get(result_value)
 
             if task_tag is None:
-                logger.debug(f"SyncEngine classified as '{result_value}' -> silent (null mapping)")
+                LOGGER.debug(f"SyncEngine classified as '{result_value}' -> silent (null mapping)")
                 return []
 
-            logger.debug(f"SyncEngine classified as '{result_value}' -> {task_tag}")
+            LOGGER.debug(f"SyncEngine classified as '{result_value}' -> {task_tag}")
 
             if isinstance(task_tag, TaskTagResult):
                 task_tag = task_tag.model_copy(
@@ -123,5 +121,5 @@ class SyncEngine:
             return [task_tag]
 
         except Exception as e:
-            logger.error(f"SyncEngine processing failed: {e}")
+            LOGGER.error(f"SyncEngine processing failed: {e}")
             return []

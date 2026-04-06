@@ -1,6 +1,5 @@
 import argparse
 import asyncio
-import logging
 from pathlib import Path
 import signal
 import sys
@@ -9,15 +8,7 @@ from typing import Any
 from constellation.core.agent import Agent
 from constellation.core.session import VoiceSession
 from constellation.loader import load_agent_config
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
-
-logger = logging.getLogger(__name__)
+from constellation.logger import LOGGER
 
 
 async def run_session(config_path: str) -> None:
@@ -28,7 +19,7 @@ async def run_session(config_path: str) -> None:
     shutdown_event = asyncio.Event()
 
     def handle_signal(sig: int, frame: Any) -> None:
-        logger.info("Received shutdown signal")
+        LOGGER.info("Received shutdown signal")
         shutdown_event.set()
 
     signal.signal(signal.SIGINT, handle_signal)
@@ -49,7 +40,7 @@ async def run_session(config_path: str) -> None:
             await asyncio.sleep(0.1)
 
     except Exception as e:
-        logger.error(f"Session error: {e}", exc_info=True)
+        LOGGER.error(f"Session error: {e}", exc_info=True)
     finally:
         await session.stop()
         print("\nSession ended.")
@@ -70,7 +61,8 @@ def main() -> None:
         help="Path to agent config YAML file",
     )
     run_parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )
@@ -82,7 +74,9 @@ def main() -> None:
         sys.exit(1)
 
     if hasattr(args, "verbose") and args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+        import logging
+
+        LOGGER.setLevel(logging.DEBUG)
 
     if args.command == "run":
         config_path = Path(args.config)

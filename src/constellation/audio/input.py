@@ -1,4 +1,3 @@
-import logging
 import queue
 import threading
 from typing import Any
@@ -7,9 +6,8 @@ import numpy as np
 import sounddevice as sd
 
 from constellation.audio.broadcaster import AudioBroadcaster
+from constellation.logger import LOGGER
 
-
-logger = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16000
 CHANNELS = 1
@@ -36,7 +34,7 @@ class MicrophoneInput:
 
     def _audio_callback(self, indata: np.ndarray, frames: int, time_info: Any, status: Any) -> None:
         if status:
-            logger.warning(f"Audio input status: {status}")
+            LOGGER.warning(f"Audio input status: {status}")
 
         audio_bytes = (indata * 32767).astype(np.int16).tobytes()
         self._audio_queue.put(audio_bytes)
@@ -49,7 +47,7 @@ class MicrophoneInput:
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"Broadcast error: {e}")
+                LOGGER.error(f"Broadcast error: {e}")
 
     def start(self) -> None:
         if self._running:
@@ -69,7 +67,7 @@ class MicrophoneInput:
         self._thread = threading.Thread(target=self._broadcast_thread, daemon=True)
         self._thread.start()
 
-        logger.info(f"Microphone input started (sample_rate={self.sample_rate}, channels={self.channels})")
+        LOGGER.info(f"Microphone input started (sample_rate={self.sample_rate}, channels={self.channels})")
 
     def stop(self) -> None:
         self._running = False
@@ -84,7 +82,7 @@ class MicrophoneInput:
             self._thread = None
 
         self.broadcaster.clear()
-        logger.info("Microphone input stopped")
+        LOGGER.info("Microphone input stopped")
 
     def subscribe(self, subscriber: Any) -> None:
         self.broadcaster.subscribe(subscriber)

@@ -1,10 +1,10 @@
 import itertools
 import json
-import logging
 from typing import Any
 
 from pydantic import TypeAdapter
 
+from constellation.logger import LOGGER
 from constellation.models.mcp import MCPServerConfig
 from constellation.services.mcp.transport import MCPTransportBase, MCPTransportError, StdioMCPTransport
 from constellation.services.mcp.types import (
@@ -14,9 +14,6 @@ from constellation.services.mcp.types import (
     MCPToolInfo,
     MCPToolsListResult,
 )
-
-
-logger = logging.getLogger(__name__)
 
 
 class MCPClientError(Exception):
@@ -155,7 +152,7 @@ class MCPClient:
             try:
                 await self._transport.close()
             except Exception as e:
-                logger.warning(f"Failed to close MCP transport for {self.name}: {e}")
+                LOGGER.warning(f"Failed to close MCP transport for {self.name}: {e}")
             self._transport = None
             self._available_tools = {}
             self._server_capabilities = None

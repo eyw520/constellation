@@ -1,16 +1,13 @@
-import logging
-
 from constellation.engines.async_engine import AsyncEngine
 from constellation.engines.registry import EngineRegistry
 from constellation.engines.sync_engine import SyncEngine
+from constellation.logger import LOGGER
 from constellation.models.config import AgentConfig
 from constellation.models.llm import LLMConfig
 from constellation.services.mcp.manager import MCPServerManager
 from constellation.tools.factory import ToolFactory
 from constellation.tools.registry import ToolRegistry
 
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_INITIATION_SIGNAL = "[[sig: Conversation begins. Greet the user.]]"
 
@@ -37,7 +34,7 @@ class Agent:
         num_sync = len(self._sync_engines)
         num_async = len(self._async_engines)
         num_tools = len(self._tool_registry.get_tools())
-        logger.info(f"Agent started with {num_sync} sync, {num_async} async engines, {num_tools} tools")
+        LOGGER.info(f"Agent started with {num_sync} sync, {num_async} async engines, {num_tools} tools")
 
     async def stop(self) -> None:
         if self._mcp_manager:

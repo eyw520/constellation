@@ -1,9 +1,7 @@
 from collections.abc import Callable
-import logging
 from typing import Protocol, runtime_checkable
 
-
-logger = logging.getLogger(__name__)
+from constellation.logger import LOGGER
 
 
 @runtime_checkable
@@ -35,7 +33,7 @@ class AudioBroadcaster:
                 else:
                     subscriber.on_audio(data)
             except Exception as e:
-                logger.error(f"Audio subscriber failed: {e}")
+                LOGGER.error(f"Audio subscriber failed: {e}")
 
     def clear(self) -> None:
         self._subscribers.clear()

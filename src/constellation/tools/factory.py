@@ -1,9 +1,9 @@
 from collections.abc import Sequence
-import logging
 from typing import TYPE_CHECKING, Any
 
 from pydantic import create_model
 
+from constellation.logger import LOGGER
 from constellation.models.mcp import MCPHandler
 from constellation.models.tool import ToolConfig
 from constellation.services.llm.types import LLMTool
@@ -13,8 +13,6 @@ from constellation.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
     from constellation.services.mcp.manager import MCPServerManager
-
-logger = logging.getLogger(__name__)
 
 
 def create_input_model_from_schema(tool_type: str, input_schema: dict[str, Any]) -> type:
@@ -126,5 +124,5 @@ class ToolFactory:
 
             return result
 
-        logger.debug(f"Created MCP tool '{config.type}' -> {handler.server}:{handler.tool}")
+        LOGGER.debug(f"Created MCP tool '{config.type}' -> {handler.server}:{handler.tool}")
         return tool, mcp_handler

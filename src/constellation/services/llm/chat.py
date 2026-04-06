@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-import logging
 from typing import Any
 
 from constellation.core.turn import ConversationTurn, TurnRole, TurnState
@@ -20,8 +19,6 @@ from constellation.services.llm.types import (
     UserMessageWithToolResults,
 )
 
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT = "You are a helpful AI assistant. Be concise and friendly in your responses."
 

@@ -1,14 +1,12 @@
 import audioop
 from collections.abc import Generator, Iterator
-import logging
 import re
 
 from openai import OpenAI
 
+from constellation.logger import LOGGER
 from constellation.settings import SETTINGS
 
-
-logger = logging.getLogger(__name__)
 
 SENTENCE_ENDINGS = re.compile(r"[.!?]+\s*")
 MIN_SENTENCE_LENGTH = 10
@@ -72,7 +70,7 @@ class OpenAITTS:
             for sentence in self._buffer_sentences(text_stream):
                 yield from self._synthesize(sentence)
         except Exception as e:
-            logger.error(f"TTS synthesis failed: {e}")
+            LOGGER.error(f"TTS synthesis failed: {e}")
 
     def run(
         self,
