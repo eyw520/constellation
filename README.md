@@ -1,6 +1,6 @@
 # Constellation
 
-A voice agent framework for building conversational AI applications with real-time audio processing.
+A voice agent harness for building conversational Voice Agents with real-time audio processing.
 
 ## Architecture
 
@@ -233,27 +233,6 @@ tools:
         local_field: mcp_field
 ```
 
-## Development
-
-### Type Checking
-
-```bash
-poetry run pyright
-```
-
-### Linting
-
-```bash
-poetry run ruff check src/
-poetry run ruff check src/ --fix  # Auto-fix
-```
-
-### Testing
-
-```bash
-poetry run pytest
-```
-
 ## Project Structure
 
 ```
@@ -279,41 +258,3 @@ constellation/
 ├── pyproject.toml
 └── README.md
 ```
-
-## Logging
-
-By default, logs go to stderr with INFO level. For custom logging, create a `logging.conf` file:
-
-```ini
-[loggers]
-keys=root,constellation
-
-[handlers]
-keys=consoleHandler
-
-[formatters]
-keys=standardFormatter
-
-[logger_root]
-level=INFO
-handlers=consoleHandler
-
-[logger_constellation]
-level=DEBUG
-handlers=consoleHandler
-qualname=constellation
-propagate=0
-
-[handler_consoleHandler]
-class=StreamHandler
-level=DEBUG
-formatter=standardFormatter
-args=(sys.stderr,)
-
-[formatter_standardFormatter]
-format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
-```
-
-## License
-
-[Add license information]
