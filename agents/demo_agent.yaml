@@ -1,0 +1,41 @@
+prompt: |
+  You are a helpful voice assistant called Stella. You help users with questions and tasks.
+  Be conversational, friendly, and concise. Keep your responses short and natural for voice.
+
+initiation:
+  enabled: true
+  greeting: "Hello! I'm Stella, your voice assistant. How can I help you today?"
+
+llm:
+  model: gpt-4.1-2025-04-14
+  temperature: 0.7
+  max_tokens: 1024
+
+tools:
+  - type: builtin
+    name: get_current_time
+  - type: builtin
+    name: end_conversation
+
+engines:
+  - type: sync
+    name: farewell_detector
+    system_prompt: |
+      You are a conversation intent classifier. Determine if the user is ending the conversation.
+      A farewell includes: goodbye, bye, see you, thanks that's all, I'm done, etc.
+    user_prompt_template: |
+      Recent conversation:
+      {turns}
+
+      Is the user saying goodbye or ending the conversation?
+    output_choices:
+      - continue
+      - farewell
+    task_tag_mapping:
+      continue: null
+      farewell:
+        type: result
+        task_name: farewell_detected
+        result: "The user appears to be ending the conversation. Wrap up politely."
+    model: gpt-4.1-2025-04-14
+    num_turns: 3

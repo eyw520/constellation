@@ -5,10 +5,20 @@ description = "A demo of the Constellation Voice Agent harness"
 authors = []
 packages = [{ include = "constellation", from = "src" }]
 
+[tool.poetry.scripts]
+constellation = "constellation.cli:main"
+
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
 numpy = "^2.0"
-requests = "^2.32"
+pydantic = "^2.0"
+openai = "^1.0"
+anthropic = "^0.40"
+deepgram-sdk = "^3.0"
+sounddevice = "^0.5"
+pyyaml = "^6.0"
+httpx = "^0.27"
+setuptools = "^82.0.1"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.19.0"
@@ -16,6 +26,7 @@ pyright = "^1.1.408"
 ruff = "^0.15.0"
 pytest = "^8.2.0"
 pytest-asyncio = "^0.25.0"
+types-pyyaml = "^6.0"
 
 [build-system]
 requires = ["poetry-core"]
