@@ -1,8 +1,7 @@
-from threading import Thread
 from typing import Any
 
-from deepgram import DeepgramClient
-from deepgram.clients.listen.v1.websocket.response import LiveResultResponse
+from deepgram import DeepgramClient, LiveResultResponse, LiveTranscriptionEvents
+from deepgram.clients.listen.v1.websocket.options import LiveOptions
 
 from constellation.audio.broadcaster import AudioSubscriber
 from constellation.logger import LOGGER
@@ -19,8 +18,6 @@ class DeepgramASR(AudioSubscriber):
     def __init__(self) -> None:
         self.deepgram = DeepgramClient(api_key=SETTINGS.require_deepgram_api_key())
         self.dg_connection: Any = None
-        self.dg_context: Any = None
-        self.dg_listening_thread: Thread | None = None
 
         self.transcript = ""
         self.transcript_updated = False
@@ -35,54 +32,55 @@ class DeepgramASR(AudioSubscriber):
         if self.dg_connection is not None:
             return
 
-        def message_handler(data: Any) -> None:
-            if isinstance(data, LiveResultResponse):
-                self._handle_transcript(data)
+        def transcript_handler(
+            _client: Any, result: LiveResultResponse, **_kwargs: Any
+        ) -> None:
+            self._handle_transcript(result)
 
-        def close_handler(data: Any) -> None:
-            LOGGER.debug(f"Deepgram ASR connection closed: {data}")
+        def close_handler(_client: Any, close: Any, **_kwargs: Any) -> None:
+            LOGGER.debug(f"Deepgram ASR connection closed: {close}")
             self.dg_connection = None
 
-        def error_handler(data: Any) -> None:
-            LOGGER.error(f"Deepgram ASR error: {data}")
+        def error_handler(_client: Any, error: Any, **_kwargs: Any) -> None:
+            LOGGER.error(f"Deepgram ASR error: {error}")
 
         try:
-            connection_params = {
-                "punctuate": "true",
-                "model": self.MODEL,
-                "language": "multi",
-                "interim_results": "true",
-                "sample_rate": str(SAMPLE_RATE),
-                "channels": str(CHANNELS),
-                "encoding": "linear16",
-            }
+            options = LiveOptions(
+                punctuate=True,
+                model=self.MODEL,
+                language="multi",
+                interim_results=True,
+                sample_rate=SAMPLE_RATE,
+                channels=CHANNELS,
+                encoding="linear16",
+            )
 
-            self.dg_context = self.deepgram.listen.websocket.v("1").open(**connection_params)
-            self.dg_connection = self.dg_context.__enter__()
+            self.dg_connection = self.deepgram.listen.websocket.v("1")
 
-            self.dg_connection.on("Results", message_handler)
-            self.dg_connection.on("Close", close_handler)
-            self.dg_connection.on("Error", error_handler)
+            self.dg_connection.on(LiveTranscriptionEvents.Transcript, transcript_handler)
+            self.dg_connection.on(LiveTranscriptionEvents.Close, close_handler)
+            self.dg_connection.on(LiveTranscriptionEvents.Error, error_handler)
+
+            if not self.dg_connection.start(options):
+                raise RuntimeError("Failed to start Deepgram connection")
 
             LOGGER.info("Deepgram ASR connection established")
         except Exception as e:
             LOGGER.error(f"Deepgram ASR setup failed: {e}")
             self.dg_connection = None
-            self.dg_context = None
             raise
 
     def stop(self) -> None:
-        if self.dg_context is None:
+        if self.dg_connection is None:
             return
 
         try:
-            self.dg_context.__exit__(None, None, None)
+            self.dg_connection.finish()
             LOGGER.info("Deepgram ASR connection closed")
         except Exception as e:
             LOGGER.error(f"ASR module stop failed: {e}")
         finally:
             self.dg_connection = None
-            self.dg_context = None
 
     def on_audio(self, data: bytes) -> None:
         self.buffer += data
@@ -101,7 +99,7 @@ class DeepgramASR(AudioSubscriber):
                 self.frame_count = 0
 
     def _handle_transcript(self, result: LiveResultResponse) -> None:
-        if not result.channel.alternatives:
+        if not result.channel or not result.channel.alternatives:
             return
 
         chunk = result.channel.alternatives[0].transcript

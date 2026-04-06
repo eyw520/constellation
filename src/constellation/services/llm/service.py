@@ -249,10 +249,10 @@ class LLMService:
                             }
                 elif event.type == "content_block_delta":
                     if hasattr(event.delta, "text"):
-                        output_queue.put(("content", event.delta.text))
+                        output_queue.put(("content", event.delta.text))  # type: ignore[union-attr]
                     elif hasattr(event.delta, "partial_json"):
                         if current_tool:
-                            current_tool["input"] += event.delta.partial_json
+                            current_tool["input"] += event.delta.partial_json  # type: ignore[union-attr]
                 elif event.type == "content_block_stop":
                     if current_tool:
                         try:
@@ -308,13 +308,13 @@ class LLMService:
         elif choice.message.tool_calls:
             for tc in choice.message.tool_calls:
                 try:
-                    args = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                    args = json.loads(tc.function.arguments) if tc.function.arguments else {}  # type: ignore[union-attr]
                 except json.JSONDecodeError:
                     args = {}
                 output_queue.put(
                     (
                         "tool",
-                        {"id": tc.id, "name": tc.function.name, "input": args},
+                        {"id": tc.id, "name": tc.function.name, "input": args},  # type: ignore[union-attr]
                     )
                 )
 
