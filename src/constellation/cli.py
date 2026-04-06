@@ -25,7 +25,7 @@ def _setup_keyboard_listener(session: VoiceSession, shutdown_event: asyncio.Even
                     char = sys.stdin.read(1)
                     if char.lower() == "m":
                         is_muted = session.toggle_mute()
-                        status = "🔇 MUTED" if is_muted else "🎤 UNMUTED"
+                        status = "MUTED" if is_muted else "UNMUTED"
                         print(f"\n[{status}]")
         except Exception:
             pass
@@ -111,8 +111,10 @@ def main() -> None:
     if hasattr(args, "verbose") and args.verbose:
         LOGGER.setLevel(logging.DEBUG)
     else:
+        LOGGER.setLevel(logging.WARNING)
         logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("httpcore").setLevel(logging.WARNING)
+        logging.getLogger("deepgram").setLevel(logging.WARNING)
 
     if args.command == "run":
         config_path = Path(args.config)

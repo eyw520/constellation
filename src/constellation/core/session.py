@@ -127,7 +127,7 @@ class VoiceSession:
             return
 
         LOGGER.info(f"User: {transcript}")
-        print(f"\n[User] {transcript}")
+        print(f"\nUser: {transcript}")
 
         self._interrupt()
 
@@ -195,7 +195,7 @@ class VoiceSession:
             if content:
                 assistant_turn.content = content
                 LOGGER.info(f"Assistant: {content[:100]}...")
-                print(f"[Assistant] {content}")
+                print(f"Assistant: {content}")
 
             self.llm.try_mark_turn_in_flight(assistant_turn.id)
             self.llm.try_mark_turn_complete(assistant_turn.id)
@@ -224,7 +224,7 @@ class VoiceSession:
                 continue
 
             LOGGER.info(f"Tool call: {tool_name}({tool_input})")
-            print(f"[Tool] {tool_name}: {tool_input}")
+            print(f"Tool: {tool_name}({tool_input})")
 
             try:
                 if asyncio.iscoroutinefunction(tool_registry.get_handler(tool_name)):
@@ -234,7 +234,7 @@ class VoiceSession:
 
                 result_str = json.dumps(result) if isinstance(result, dict) else str(result)
                 LOGGER.info(f"Tool result: {tool_name} -> {result_str[:100]}...")
-                print(f"[Tool Result] {result_str[:200]}")
+                print(f"Tool Result: {result_str[:200]}")
 
                 results.append({"tool_call_id": tool_call_id, "content": result_str})
 
