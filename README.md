@@ -1,163 +1,235 @@
 # Constellation
 
-A voice agent harness for building conversational Voice Agents with real-time audio processing.
+A multi-agent voice harness that orchestrates specialized LLM agents for real-time conversational AI.
 
-## Architecture
+## Why Constellation
 
-Constellation provides a complete voice application stack:
+Most voice agent frameworks use a single LLM for everything: understanding intent, generating responses, deciding when to call tools. This creates a monolithic system where the primary LLM must handle classification, routing, and generation in a single pass.
+
+Constellation takes a different approach: **hierarchical multi-agent orchestration**. Specialized classification agents preprocess each user message before the primary LLM responds. This enables:
+
+- **Intent extraction** without polluting the main conversation context
+- **Cost optimization** via gate mechanisms that skip irrelevant classifiers
+- **Parallel background processing** for analytics, logging, or enrichment
+- **Config-driven behavior** with no code changes for new agent patterns
+
+## Multi-Agent Architecture
+
+Each user message flows through three agent tiers:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      VoiceSession                           │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────────┐ │
-│  │   ASR   │──▶│   VAD   │──▶│   LLM   │──▶│     TTS     │ │
-│  │Deepgram │   │ WebRTC  │   │ Service │   │   OpenAI    │ │
-│  └─────────┘   └─────────┘   └─────────┘   └─────────────┘ │
-│       ▲                           │                         │
-│       │                           ▼                         │
-│  ┌─────────┐              ┌─────────────┐                  │
-│  │   Mic   │              │   Engines   │                  │
-│  │  Input  │              │ Sync/Async  │                  │
-│  └─────────┘              └─────────────┘                  │
-│       │                           │                         │
-│       ▼                           ▼                         │
-│  ┌─────────┐              ┌─────────────┐                  │
-│  │ Speaker │              │    Tools    │                  │
-│  │ Output  │              │Registry/MCP │                  │
-│  └─────────┘              └─────────────┘                  │
-└─────────────────────────────────────────────────────────────┘
+                              User Message
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        SYNC ENGINE LAYER                                 │
+│  Classification agents that run BEFORE the primary LLM responds          │
+│                                                                          │
+│  ┌────────────────────┐  ┌────────────────────┐                         │
+│  │    SyncEngine 1    │  │    SyncEngine 2    │  ...                    │
+│  │  ┌──────────────┐  │  │  ┌──────────────┐  │                         │
+│  │  │   Gate LLM   │──┼──│  │   Gate LLM   │  │  Fast/cheap pre-filter  │
+│  │  └──────┬───────┘  │  │  └──────┬───────┘  │                         │
+│  │         │ pass     │  │         │ pass     │                         │
+│  │  ┌──────▼───────┐  │  │  ┌──────▼───────┐  │                         │
+│  │  │  Class LLM   │  │  │  │  Class LLM   │  │  Structured output      │
+│  │  └──────┬───────┘  │  │  └──────┬───────┘  │                         │
+│  │         │          │  │         │          │                         │
+│  │    [TaskTag]       │  │    [TaskTag]       │                         │
+│  └─────────┼──────────┘  └─────────┼──────────┘                         │
+│            └───────────┬───────────┘                                     │
+│                        ▼                                                 │
+│              Synthetic Tool Exchange                                     │
+│         (inject results into conversation)                               │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        PRIMARY LLM LAYER                                 │
+│  Main conversation agent with full context + tool access                 │
+│                                                                          │
+│  Context (static + dynamic) + Turn History + Synthetic Results           │
+│                         │                                                │
+│                         ▼                                                │
+│                   Primary LLM ──▶ Stream Response ──▶ TTS ──▶ Speaker    │
+│                         │                                                │
+│                         ▼                                                │
+│                   Tool Calls ──▶ Execute ──▶ Loop                        │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   │ (parallel, non-blocking)
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       ASYNC ENGINE LAYER                                 │
+│  Background agents that don't block response generation                  │
+│                                                                          │
+│  ┌────────────────────┐  ┌────────────────────┐                         │
+│  │   AsyncEngine 1    │  │   AsyncEngine 2    │  ...                    │
+│  │   (Sentiment)      │  │   (Summarization)  │                         │
+│  └────────────────────┘  └────────────────────┘                         │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Components
+A single user utterance may invoke 4+ LLM calls: gate evaluations, classifications, primary response, and background processing—all coordinated automatically.
 
-- **VoiceSession**: Orchestrates the complete voice interaction loop
-- **ASR (Deepgram)**: Real-time speech-to-text transcription
-- **VAD (WebRTC)**: Voice activity detection for interruption handling
-- **LLM Service**: Multi-provider support (OpenAI, Anthropic) with streaming
-- **TTS (OpenAI)**: Text-to-speech synthesis with streaming output
-- **Engines**: Sync/Async processing pipelines with TaskTag outputs
-- **Tools**: Registry-based tool system with MCP server support
+## Core Concepts
 
-## Getting Started
+### Engines
 
-See [SETUP.md](SETUP.md) for installation and running instructions.
+Engines are specialized LLM agents that process messages independently from the primary conversation LLM.
 
-## Agent Configuration
-
-Agents are configured via YAML files. Here's the structure:
+**Sync Engines** run sequentially before the primary LLM responds. They classify user intent and output `TaskTags` that influence the conversation:
 
 ```yaml
-# System prompt for the LLM
-prompt: |
-  You are a helpful voice assistant. Be conversational and concise.
+engines:
+  - type: sync
+    name: farewell_detector
+    system_prompt: "Classify if the user is ending the conversation."
+    user_prompt_template: "Conversation:\n{turns}"
+    output_choices: [continue, farewell]
+    task_tag_mapping:
+      continue: null
+      farewell:
+        type: result
+        task_name: farewell_detected
+        result: "User is ending the conversation. Wrap up politely."
+```
 
-# Conversation initiation settings
+**Async Engines** run in parallel threads after the primary response begins. They don't block the conversation:
+
+```yaml
+engines:
+  - type: async
+    name: sentiment_logger
+    system_prompt: "Analyze the emotional tone of this exchange."
+    user_prompt_template: "{turns}"
+```
+
+### TaskTags
+
+TaskTags are the outputs of sync engines. They determine what action to take based on classification:
+
+| Type | Effect |
+|------|--------|
+| `result` | Injects information into conversation via synthetic tool exchange |
+| `invocation` | Executes a tool automatically before the primary LLM responds |
+| `disable` | Turns off this engine for the remainder of the conversation |
+
+```yaml
+task_tag_mapping:
+  # No action for this classification
+  general: null
+
+  # Inject context into conversation
+  scheduling_intent:
+    type: result
+    task_name: scheduling
+    result: "User wants to schedule something. Check calendar availability."
+
+  # Auto-execute a tool
+  fetch_data:
+    type: invocation
+    tool_name: get_user_profile
+    tool_input: {}
+
+  # Disable this engine after triggering
+  greeting_complete:
+    type: disable
+```
+
+### Synthetic Tool Exchange
+
+When a sync engine returns a `TaskTagResult`, the system creates a synthetic tool call/result pair and injects it into the conversation history. The primary LLM sees this as if it had requested the information itself:
+
+```
+Engine classifies "farewell"
+    → System creates fake tool call: {name: "engine_task_result", input: {}}
+    → System creates fake tool result: {content: "User is ending the conversation..."}
+    → Both injected into turn history
+    → Primary LLM naturally incorporates the hint
+```
+
+This avoids complex prompt engineering—classification results flow through the existing tool paradigm.
+
+### Gate Mechanism
+
+Gates are optional pre-filters that decide whether a sync engine should run at all. Use cheaper/faster models for gates to reduce cost and latency:
+
+```yaml
+engines:
+  - type: sync
+    name: technical_support
+    gate:
+      prompt: "Is this message about a technical issue or product problem?"
+      model: gpt-4.1-nano-2025-04-14  # Fast gate
+      num_turns: 2
+    # Full classification only runs if gate passes
+    system_prompt: "Classify the technical issue type..."
+    model: gpt-4.1-2025-04-14
+    output_choices: [billing, bug, feature_request, other]
+```
+
+### Interrupt Handling
+
+Constellation supports real-time interruption. When the user speaks while the agent is responding:
+
+1. VAD detects speech onset
+2. LLM inference is canceled mid-stream
+3. TTS audio queue is cleared
+4. Speaker output stops immediately
+5. System processes the new transcript
+
+This enables natural turn-taking without waiting for the agent to finish.
+
+## Configuration Reference
+
+Agents are fully configured via YAML:
+
+```yaml
+prompt: |
+  You are a helpful voice assistant.
+
 initiation:
   enabled: true
-  greeting: "Hello! How can I help you today?"
+  greeting: "Hello! How can I help you?"
 
-# LLM configuration
 llm:
-  model: gpt-4.1-2025-04-14  # or claude-sonnet-4-20250514, etc.
+  model: gpt-4.1-2025-04-14
   temperature: 0.7
   max_tokens: 1024
 
-# Tools available to the agent
 tools:
   - type: builtin
     name: get_current_time
   - type: builtin
     name: end_conversation
 
-# Processing engines
 engines:
   - type: sync
     name: intent_classifier
-    system_prompt: |
-      Classify the user's intent.
-    user_prompt_template: |
-      Conversation:
-      {turns}
-    output_choices:
-      - general
-      - farewell
-    task_tag_mapping:
-      general: null
-      farewell:
-        type: result
-        task_name: farewell
-        result: "User is ending the conversation."
-    model: gpt-4.1-2025-04-14
-    num_turns: 3
+    # ... engine config
+  - type: async
+    name: background_logger
+    # ... engine config
 
-# MCP server connections (optional)
 mcp_servers:
-  - name: filesystem
+  - name: external_service
     transport:
       type: stdio
       command: npx
       args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-    timeout_seconds: 30
 ```
 
 ### Supported Models
 
-**OpenAI:**
-- `gpt-4o-2024-11-20`
-- `gpt-4.1-2025-04-14`
-- `gpt-4.1-mini-2025-04-14`
-- `gpt-4.1-nano-2025-04-14`
-
-**Anthropic:**
-- `claude-sonnet-4-20250514`
-- `claude-opus-4-20250514`
-
-### Builtin Tools
-
-| Tool | Description |
-|------|-------------|
-| `get_current_time` | Returns the current date and time |
-| `end_conversation` | Ends the conversation gracefully |
-
-### Engine Types
-
-**Sync Engines**: Run before each LLM turn, can inject context or trigger actions
-
-```yaml
-- type: sync
-  name: classifier
-  system_prompt: "Classification prompt"
-  user_prompt_template: "Template with {turns}"
-  output_choices: [choice1, choice2]
-  task_tag_mapping:
-    choice1: null  # No action
-    choice2:
-      type: result
-      task_name: my_task
-      result: "Injected context"
-  model: gpt-4.1-2025-04-14
-  num_turns: 5  # History window
-  gate:  # Optional gate condition
-    prompt: "Should this engine run?"
-    model: gpt-4.1-mini-2025-04-14
-    num_turns: 2
-```
-
-**Async Engines**: Run in background, don't block the conversation
-
-```yaml
-- type: async
-  name: logger
-  system_prompt: "Summarize the conversation"
-  user_prompt_template: "{turns}"
-  model: gpt-4.1-mini-2025-04-14
-  num_turns: 10
-```
+| Provider | Models |
+|----------|--------|
+| OpenAI | `gpt-4o-2024-11-20`, `gpt-4.1-2025-04-14`, `gpt-4.1-mini-2025-04-14`, `gpt-4.1-nano-2025-04-14` |
+| Anthropic | `claude-sonnet-4-20250514`, `claude-opus-4-20250514` |
 
 ### MCP Integration
 
-Connect to MCP servers for additional tool capabilities:
+Connect external tool servers via Model Context Protocol:
 
 ```yaml
 mcp_servers:
@@ -166,45 +238,38 @@ mcp_servers:
       type: stdio
       command: node
       args: ["path/to/server.js"]
-      env:
-        MY_VAR: value
     timeout_seconds: 30
 
 tools:
   - type: my_custom_tool
-    description: "Tool from MCP server"
     handler:
       type: mcp
       server: my_server
       tool: actual_tool_name
       input_mapping:
         mcp_param: local_param
-      output_mapping:
-        local_field: mcp_field
 ```
+
+## Getting Started
+
+See [SETUP.md](SETUP.md) for installation and running instructions.
 
 ## Project Structure
 
 ```
 constellation/
 ├── src/constellation/
-│   ├── core/           # Agent, Session, Context, Turn
-│   ├── engines/        # Sync/Async engines, Executor
+│   ├── core/           # Agent, VoiceSession, ContextManager
+│   ├── engines/        # SyncEngine, AsyncEngine, EngineExecutor
 │   ├── services/
-│   │   ├── llm/        # LLM service, Chat, Types
-│   │   ├── asr/        # Deepgram ASR
-│   │   ├── tts/        # OpenAI TTS
-│   │   ├── vad/        # Voice activity detection
-│   │   └── mcp/        # MCP client, transport, manager
-│   ├── tools/          # Registry, Factory, Builtins
-│   ├── audio/          # Microphone input, Speaker output
-│   ├── models/         # Pydantic config models
-│   ├── cli.py          # CLI entry point
-│   ├── loader.py       # YAML config loading
-│   ├── settings.py     # Environment settings
-│   └── logger.py       # Logging configuration
-├── agents/             # Agent configuration files
-├── logging.conf        # Optional logging configuration
-├── pyproject.toml
-└── README.md
+│   │   ├── llm/        # LLMService, ChatLLM (multi-provider)
+│   │   ├── asr/        # DeepgramASR
+│   │   ├── tts/        # OpenAITTS
+│   │   ├── vad/        # WebRTCVAD
+│   │   └── mcp/        # MCPClient, MCPServerManager
+│   ├── tools/          # ToolRegistry, ToolFactory
+│   ├── audio/          # MicrophoneInput, SpeakerOutput
+│   └── models/         # Pydantic configuration models
+├── agents/             # Agent YAML configurations
+└── SETUP.md
 ```
