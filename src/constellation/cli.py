@@ -73,10 +73,13 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    if hasattr(args, "verbose") and args.verbose:
-        import logging
+    import logging
 
+    if hasattr(args, "verbose") and args.verbose:
         LOGGER.setLevel(logging.DEBUG)
+    else:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     if args.command == "run":
         config_path = Path(args.config)
