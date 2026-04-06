@@ -1,0 +1,164 @@
+prompt: |
+  You are Maya, a friendly patient intake coordinator at HealthFirst Medical Center.
+  Your job is to collect patient information for new or returning patients.
+
+  Be warm, professional, and efficient. Collect information naturally through conversation.
+  Confirm spellings for names and repeat back important details like phone numbers and emails.
+
+  Information to collect:
+  - Full name (first and last)
+  - Date of birth
+  - Phone number
+  - Email address
+  - Insurance provider and member ID (if applicable)
+  - Reason for visit
+
+  Use the store_patient_field tool to save each piece of information as you collect it.
+  Use get_patient_fields to check what information you still need.
+
+  After collecting all required information, use create_patient to register them in the system.
+  Then thank them and let them know they're all set.
+
+  Keep responses concise and natural for voice conversation.
+  When confirming spellings, say letters clearly: "S as in Sam, M as in Mary"
+
+initiation:
+  enabled: true
+  greeting: "[[sig: You are calling a new patient who needs to complete intake. Greet them warmly.]]"
+
+llm:
+  model: gpt-4.1-2025-04-14
+  temperature: 0.7
+  max_tokens: 1024
+
+mcp_servers:
+  - name: healthcare
+    transport:
+      type: stdio
+      command: python
+      args: ["servers/healthcare/server.py"]
+    timeout_seconds: 30
+
+tools:
+  - type: store_patient_field
+    description: Store a patient information field collected during intake
+    handler:
+      type: mcp
+      server: healthcare
+      tool: store_patient_field
+  - type: get_patient_fields
+    description: Get all patient fields collected so far and see what's missing
+    handler:
+      type: mcp
+      server: healthcare
+      tool: get_patient_fields
+  - type: create_patient
+    description: Create a new patient record or find existing one
+    handler:
+      type: mcp
+      server: healthcare
+      tool: create_patient
+  - type: search_patients
+    description: Search for existing patients by phone, email, or name
+    handler:
+      type: mcp
+      server: healthcare
+      tool: search_patients
+  - type: builtin
+    name: end_conversation
+
+engines:
+  - type: sync
+    name: form_field_tracker
+    system_prompt: |
+      You track which patient information field was just provided in the conversation.
+      Only classify what was provided in the most recent user message.
+
+      Categories:
+      - FIRST_NAME: Patient stated their first name
+      - LAST_NAME: Patient stated their last name
+      - FULL_NAME: Patient provided both first and last name
+      - DATE_OF_BIRTH: Patient provided their birth date
+      - PHONE: Patient provided phone number
+      - EMAIL: Patient provided email address
+      - INSURANCE: Patient provided insurance information
+      - REASON: Patient explained why they need to visit
+      - CONFIRMATION: Patient confirmed information is correct
+      - NONE: No patient info provided (greetings, questions, etc.)
+    user_prompt_template: |
+      Recent conversation:
+      {turns}
+
+      What patient information did the user just provide?
+    output_choices:
+      - FIRST_NAME
+      - LAST_NAME
+      - FULL_NAME
+      - DATE_OF_BIRTH
+      - PHONE
+      - EMAIL
+      - INSURANCE
+      - REASON
+      - CONFIRMATION
+      - NONE
+    task_tag_mapping:
+      FIRST_NAME:
+        type: result
+        task_name: field_provided
+        result: "Patient provided their first name. Store it using store_patient_field."
+      LAST_NAME:
+        type: result
+        task_name: field_provided
+        result: "Patient provided their last name. Store it using store_patient_field."
+      FULL_NAME:
+        type: result
+        task_name: field_provided
+        result: "Patient provided full name. Store first_name and last_name using store_patient_field."
+      DATE_OF_BIRTH:
+        type: result
+        task_name: field_provided
+        result: "Patient provided date of birth. Store it using store_patient_field."
+      PHONE:
+        type: result
+        task_name: field_provided
+        result: "Patient provided phone number. Confirm and store using store_patient_field."
+      EMAIL:
+        type: result
+        task_name: field_provided
+        result: "Patient provided email. Spell it back to confirm, then store using store_patient_field."
+      INSURANCE:
+        type: result
+        task_name: field_provided
+        result: "Patient provided insurance info. Store provider and member_id using store_patient_field."
+      REASON:
+        type: result
+        task_name: field_provided
+        result: "Patient explained reason for visit. Store using store_patient_field with field_name 'reason'."
+      CONFIRMATION:
+        type: result
+        task_name: field_confirmed
+        result: "Patient confirmed information is correct."
+      NONE: null
+    model: gpt-4.1-2025-04-14
+    num_turns: 2
+
+  - type: sync
+    name: farewell_detector
+    system_prompt: |
+      Detect if the user is ending the conversation.
+    user_prompt_template: |
+      Recent conversation:
+      {turns}
+
+      Is the user saying goodbye or ending the conversation?
+    output_choices:
+      - continue
+      - farewell
+    task_tag_mapping:
+      continue: null
+      farewell:
+        type: result
+        task_name: farewell_detected
+        result: "User is ending the conversation. Wrap up politely and call end_conversation."
+    model: gpt-4.1-2025-04-14
+    num_turns: 2

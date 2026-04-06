@@ -1,0 +1,204 @@
+prompt: |
+  You are Sarah, a scheduling coordinator at HealthFirst Medical Center.
+  You help patients schedule, reschedule, or cancel appointments.
+
+  Be warm, helpful, and efficient. Keep responses concise for voice conversation.
+
+  What you can help with:
+  - Schedule new appointments
+  - Reschedule existing appointments
+  - Cancel appointments
+  - Check appointment status
+  - Answer questions about available times and doctors
+
+  When scheduling:
+  1. Get the patient's name and phone to look them up or create a record
+  2. Understand what they need (reason for visit, preferred doctor/specialty)
+  3. Use get_available_appointments to find open slots
+  4. Present 2-3 options clearly: "I have Monday at 10 AM, Wednesday at 2 PM, or Friday at 9 AM"
+  5. Book their selection using book_appointment
+  6. Confirm the details and give them the confirmation number
+
+  When saying times: "two PM" not "2:00 PM"
+  When saying dates: "Monday, January fifteenth" not "1/15"
+
+  If the patient needs something outside scheduling (billing, medical records, prescriptions),
+  offer to transfer them using transfer_call.
+
+initiation:
+  enabled: true
+  greeting: "[[sig: A patient is calling to schedule an appointment. Greet them and ask how you can help.]]"
+
+llm:
+  model: gpt-4.1-2025-04-14
+  temperature: 0.7
+  max_tokens: 1024
+
+mcp_servers:
+  - name: healthcare
+    transport:
+      type: stdio
+      command: python
+      args: ["servers/healthcare/server.py"]
+    timeout_seconds: 30
+
+tools:
+  - type: search_patients
+    description: Search for existing patients by phone, email, or name
+    handler:
+      type: mcp
+      server: healthcare
+      tool: search_patients
+  - type: create_patient
+    description: Create a new patient record
+    handler:
+      type: mcp
+      server: healthcare
+      tool: create_patient
+  - type: get_available_appointments
+    description: Get available appointment slots for scheduling
+    handler:
+      type: mcp
+      server: healthcare
+      tool: get_available_appointments
+  - type: book_appointment
+    description: Book an appointment for a patient
+    handler:
+      type: mcp
+      server: healthcare
+      tool: book_appointment
+  - type: get_patient_appointments
+    description: Get appointments for a patient
+    handler:
+      type: mcp
+      server: healthcare
+      tool: get_patient_appointments
+  - type: cancel_appointment
+    description: Cancel an existing appointment
+    handler:
+      type: mcp
+      server: healthcare
+      tool: cancel_appointment
+  - type: transfer_call
+    description: Transfer the call to another department
+    handler:
+      type: mcp
+      server: healthcare
+      tool: transfer_call
+  - type: builtin
+    name: get_current_time
+  - type: builtin
+    name: end_conversation
+
+engines:
+  - type: sync
+    name: scheduling_intent
+    system_prompt: |
+      Classify the patient's scheduling intent based on the conversation.
+
+      Categories:
+      - SCHEDULE_NEW: Patient wants to book a new appointment
+      - RESCHEDULE: Patient wants to change an existing appointment
+      - CANCEL: Patient wants to cancel an appointment
+      - CHECK_STATUS: Patient wants to check on their appointments
+      - TRANSFER: Patient needs billing, records, or something outside scheduling
+      - NONE: Greetings, confirmations, or no clear intent yet
+    user_prompt_template: |
+      Recent conversation:
+      {turns}
+
+      What is the patient's scheduling intent?
+    output_choices:
+      - SCHEDULE_NEW
+      - RESCHEDULE
+      - CANCEL
+      - CHECK_STATUS
+      - TRANSFER
+      - NONE
+    task_tag_mapping:
+      SCHEDULE_NEW:
+        type: result
+        task_name: intent
+        result: "Patient wants to schedule a new appointment. Collect their info and find available slots."
+      RESCHEDULE:
+        type: result
+        task_name: intent
+        result: "Patient wants to reschedule. Look up their existing appointments first."
+      CANCEL:
+        type: result
+        task_name: intent
+        result: "Patient wants to cancel. Look up their appointments to identify which one."
+      CHECK_STATUS:
+        type: result
+        task_name: intent
+        result: "Patient wants to check their appointments. Look them up by name or phone."
+      TRANSFER:
+        type: result
+        task_name: intent
+        result: "Patient needs a department outside scheduling. Offer to transfer them."
+      NONE: null
+    model: gpt-4.1-2025-04-14
+    num_turns: 3
+
+  - type: sync
+    name: urgency_detector
+    gate:
+      prompt: |
+        Did the user mention any symptoms, pain, or health concerns?
+        Return true if they described why they need medical attention.
+        Return false for scheduling logistics, greetings, or personal info.
+      num_turns: 1
+    system_prompt: |
+      Assess the urgency of the patient's medical concern.
+
+      - EMERGENCY: Life-threatening (chest pain, difficulty breathing, severe bleeding)
+      - URGENT: Needs attention within 24-48 hours (high fever, severe pain, infection signs)
+      - ROUTINE: Can be scheduled normally (checkup, mild symptoms, follow-up)
+      - UNCLEAR: Need more information
+    user_prompt_template: |
+      Patient's message:
+      {turns}
+
+      What is the urgency level?
+    output_choices:
+      - EMERGENCY
+      - URGENT
+      - ROUTINE
+      - UNCLEAR
+    task_tag_mapping:
+      EMERGENCY:
+        type: result
+        task_name: urgency
+        result: "EMERGENCY DETECTED. Immediately tell the patient to call 911 or go to the ER. Do not try to schedule."
+      URGENT:
+        type: result
+        task_name: urgency
+        result: "Urgent case. Prioritize finding the earliest available appointment, ideally today or tomorrow."
+      ROUTINE:
+        type: result
+        task_name: urgency
+        result: "Routine appointment. Proceed with normal scheduling."
+      UNCLEAR: null
+    model: gpt-4.1-2025-04-14
+    num_turns: 1
+
+  - type: sync
+    name: farewell_detector
+    system_prompt: |
+      Detect if the user is ending the conversation.
+    user_prompt_template: |
+      Recent conversation:
+      {turns}
+
+      Is the user saying goodbye?
+    output_choices:
+      - continue
+      - farewell
+    task_tag_mapping:
+      continue: null
+      farewell:
+        type: result
+        task_name: farewell_detected
+        result: "User is ending the conversation. Say goodbye and call end_conversation."
+    model: gpt-4.1-2025-04-14
+    num_turns: 2
