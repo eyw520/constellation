@@ -44,8 +44,10 @@ class MicrophoneInput:
         while self._running:
             try:
                 audio = self._audio_queue.get(timeout=0.1)
-                if not self._muted:
-                    self.broadcaster.broadcast(audio)
+                if self._muted:
+                    # Send silence to keep ASR connection alive
+                    audio = bytes(len(audio))
+                self.broadcaster.broadcast(audio)
             except queue.Empty:
                 continue
             except Exception as e:
