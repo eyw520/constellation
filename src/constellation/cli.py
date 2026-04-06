@@ -1,14 +1,40 @@
 import argparse
 import asyncio
 from pathlib import Path
+import select
 import signal
 import sys
+import termios
+import threading
+import tty
 from typing import Any
 
 from constellation.core.agent import Agent
 from constellation.core.session import VoiceSession
 from constellation.loader import load_agent_config
 from constellation.logger import LOGGER
+
+
+def _setup_keyboard_listener(session: VoiceSession, shutdown_event: asyncio.Event) -> threading.Thread:
+    def keyboard_thread() -> None:
+        old_settings = termios.tcgetattr(sys.stdin)
+        try:
+            tty.setcbreak(sys.stdin.fileno())
+            while not shutdown_event.is_set():
+                if select.select([sys.stdin], [], [], 0.1)[0]:
+                    char = sys.stdin.read(1)
+                    if char.lower() == "m":
+                        is_muted = session.toggle_mute()
+                        status = "🔇 MUTED" if is_muted else "🎤 UNMUTED"
+                        print(f"\n[{status}]")
+        except Exception:
+            pass
+        finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+
+    thread = threading.Thread(target=keyboard_thread, daemon=True)
+    thread.start()
+    return thread
 
 
 async def run_session(config_path: str) -> None:
@@ -25,6 +51,7 @@ async def run_session(config_path: str) -> None:
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
+    old_settings = None
     try:
         await session.start()
 
@@ -32,7 +59,11 @@ async def run_session(config_path: str) -> None:
         print("Constellation Voice Agent")
         print("=" * 50)
         print("Listening... (Press Ctrl+C to stop)")
+        print("Press 'm' to toggle mute")
         print("=" * 50 + "\n")
+
+        old_settings = termios.tcgetattr(sys.stdin)
+        _setup_keyboard_listener(session, shutdown_event)
 
         session.run_initiation()
 
@@ -42,6 +73,8 @@ async def run_session(config_path: str) -> None:
     except Exception as e:
         LOGGER.error(f"Session error: {e}", exc_info=True)
     finally:
+        if old_settings:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
         await session.stop()
         print("\nSession ended.")
 

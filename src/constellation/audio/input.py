@@ -29,6 +29,7 @@ class MicrophoneInput:
 
         self._stream: sd.InputStream | None = None
         self._running = False
+        self._muted = False
         self._thread: threading.Thread | None = None
         self._audio_queue: queue.Queue[bytes] = queue.Queue()
 
@@ -43,7 +44,8 @@ class MicrophoneInput:
         while self._running:
             try:
                 audio = self._audio_queue.get(timeout=0.1)
-                self.broadcaster.broadcast(audio)
+                if not self._muted:
+                    self.broadcaster.broadcast(audio)
             except queue.Empty:
                 continue
             except Exception as e:
@@ -89,3 +91,11 @@ class MicrophoneInput:
 
     def unsubscribe(self, subscriber: Any) -> None:
         self.broadcaster.unsubscribe(subscriber)
+
+    def toggle_mute(self) -> bool:
+        self._muted = not self._muted
+        LOGGER.info(f"Microphone {'muted' if self._muted else 'unmuted'}")
+        return self._muted
+
+    def is_muted(self) -> bool:
+        return self._muted

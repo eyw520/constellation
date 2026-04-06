@@ -266,3 +266,9 @@ class VoiceSession:
 
     def is_running(self) -> bool:
         return self._running
+
+    def toggle_mute(self) -> bool:
+        return self.mic_input.toggle_mute()
+
+    def is_muted(self) -> bool:
+        return self.mic_input.is_muted()
