@@ -20,7 +20,9 @@ When this file and an enforcing hook disagree, the hook wins — fix whichever i
   Run all of it before declaring work done.
 - `make fmt` auto-fixes what the gate would flag.
 - `make dev` once on a fresh clone: installs dependencies and wires the git hooks via `core.hooksPath`; the hooks are dormant until then.
-- The pre-commit hook runs the secret scan and the gate; bypassing it (`--no-verify`) is for emergencies, and CI still runs the gate.
+- The pre-commit hook runs the secret scan and the gate, and caches the result by tree hash — identical content never pays for the gate twice; bypassing it (`--no-verify`) is for emergencies, and CI still runs the gate.
+- The gate is incremental: every tool that can cache, caches (ruff and mypy caches, `eslint --cache`, `prettier --cache`, `tsc --incremental`, `cspell --cache`).
+  A warm no-change gate should cost seconds; treat a slow warm gate as a defect, not a tax.
 - Where CI exists, it runs exactly `make check` — local and CI cannot drift.
 
 ## Commit messages
