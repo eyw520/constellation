@@ -32,9 +32,7 @@ class DeepgramASR(AudioSubscriber):
         if self.dg_connection is not None:
             return
 
-        def transcript_handler(
-            _client: Any, result: LiveResultResponse, **_kwargs: Any
-        ) -> None:
+        def transcript_handler(_client: Any, result: LiveResultResponse, **_kwargs: Any) -> None:
             self._handle_transcript(result)
 
         def close_handler(_client: Any, close: Any, **_kwargs: Any) -> None:
