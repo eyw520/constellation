@@ -1,9 +1,16 @@
 SHELL := /bin/zsh
 
-.PHONY: install lint check typecheck test
+.PHONY: install lint check typecheck test fmt hooks dev
 
 install:
 	poetry install
+
+fmt: lint
+
+hooks:
+	git config core.hooksPath .githooks
+
+dev: hooks install
 
 lint:
 	poetry run ruff check src/ --unsafe-fixes --fix

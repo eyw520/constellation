@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# Commit-message gate. The two variables below are this repo's configuration and
+# the single source of truth for the convention — docs point here, not the reverse.
+# An empty scopes list switches to the scopeless form: <type>: Subject.
+
+types="feat|fix|chore|clean|revert"
+scopes=""
+
+# Optional: derive scopes from top-level directories (uncomment and adapt):
+# for dir in "$(git rev-parse --show-toplevel)/workflows"/*/; do
+#   [ -d "$dir" ] && scopes="$scopes|$(basename "$dir")"
+# done
+
+commit_msg_file="$1"
+subject=$(grep -v '^#' "$commit_msg_file" | head -1)
+body=$(grep -v '^#' "$commit_msg_file" | tail -n +2 | grep -v '^[[:space:]]*$' || true)
+
+if [ -n "$body" ]; then
+  echo ""
+  echo "ERROR: Subject line only — no body, no Co-Authored-By or other trailers."
+  echo ""
+  exit 1
+fi
+
+if [ -n "$scopes" ]; then
+  pattern="^($types)\(($scopes)\): [A-Z].*\.$"
+  expected="<type>(<scope>): <Title case message ending with period.>"
+  example_scope="($(printf '%s' "$scopes" | cut -d'|' -f1))"
+else
+  pattern="^($types): [A-Z].*\.$"
+  expected="<type>: <Title case message ending with period.>"
+  example_scope=""
+fi
+
+if ! printf '%s\n' "$subject" | grep -qE "$pattern"; then
+  echo ""
+  echo "ERROR: Invalid commit message format."
+  echo ""
+  echo "Expected: $expected"
+  echo "Types: $(printf '%s' "$types" | sed 's/|/, /g')"
+  if [ -n "$scopes" ]; then
+    echo "Scopes: $(printf '%s' "$scopes" | sed 's/|/, /g')"
+  fi
+  echo ""
+  echo "Examples:"
+  echo "  feat$example_scope: Add user authentication."
+  echo "  fix$example_scope: Resolve null pointer in login flow."
+  echo "  chore$example_scope: Update dependencies."
+  echo ""
+  echo "Your message: $subject"
+  echo ""
+  exit 1
+fi
