@@ -1,0 +1,36 @@
+#!/bin/sh
+# Pre-commit gate: block staged credentials, then run the repo's gate — the
+# enforcement behind "full gate green before each commit". Bypass with
+# --no-verify when you must (mid-rebase, WIP branch); CI still runs the gate.
+#
+# The gate result is CACHED by tree hash: if the exact tree being committed
+# already passed, the gate is skipped. This makes message-retry, --amend, and
+# repeated commits of identical content free. The cache is only trusted (and
+# only written) when the working tree matches the index for tracked files —
+# the gate runs against the working tree, so that is the soundness condition.
+#
+# If `make check` is too slow to run on every commit, swap the invocation below
+# for the fast subset (format/lint on staged files) and let CI carry the full gate.
+
+hooks_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
+if [ -x "$hooks_dir/secret-scan" ]; then
+  "$hooks_dir/secret-scan" || exit 1
+fi
+
+git_dir=$(git rev-parse --git-dir)
+cache="$git_dir/standards-gate-pass"
+tree=$(git write-tree 2>/dev/null)
+worktree_matches_index() { git diff --quiet; }
+
+if [ -n "$tree" ] && worktree_matches_index \
+   && [ -f "$cache" ] && [ "$(cat "$cache")" = "$tree" ]; then
+  echo "pre-commit: gate already green for this exact tree ($tree) — skipping"
+  exit 0
+fi
+
+make check || exit 1
+
+if [ -n "$tree" ] && worktree_matches_index; then
+  printf '%s\n' "$tree" > "$cache"
+fi

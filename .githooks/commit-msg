@@ -3,6 +3,10 @@
 # Commit-message gate. The two variables below are this repo's configuration and
 # the single source of truth for the convention — docs point here, not the reverse.
 # An empty scopes list switches to the scopeless form: <type>: Subject.
+#
+# Cosmetic violations — lowercase subject, trailing whitespace, missing final
+# period — are AUTO-FIXED in place rather than rejected; only a wrong or missing
+# type/scope prefix (or a body) rejects.
 
 types="feat|fix|chore|clean|revert"
 scopes=""
@@ -24,16 +28,16 @@ if [ -n "$body" ]; then
 fi
 
 if [ -n "$scopes" ]; then
-  pattern="^($types)\(($scopes)\): [A-Z].*\.$"
+  prefix_pattern="^($types)\(($scopes)\): "
   expected="<type>(<scope>): <Title case message ending with period.>"
   example_scope="($(printf '%s' "$scopes" | cut -d'|' -f1))"
 else
-  pattern="^($types): [A-Z].*\.$"
+  prefix_pattern="^($types): "
   expected="<type>: <Title case message ending with period.>"
   example_scope=""
 fi
 
-if ! printf '%s\n' "$subject" | grep -qE "$pattern"; then
+reject() {
   echo ""
   echo "ERROR: Invalid commit message format."
   echo ""
@@ -51,4 +55,33 @@ if ! printf '%s\n' "$subject" | grep -qE "$pattern"; then
   echo "Your message: $subject"
   echo ""
   exit 1
+}
+
+printf '%s\n' "$subject" | grep -qE -e "$prefix_pattern" || reject
+
+# Auto-fix the cosmetics: capitalize the subject, trim trailing space, add the period.
+prefix=$(printf '%s\n' "$subject" | grep -oE -e "$prefix_pattern")
+rest=${subject#"$prefix"}
+rest=$(printf '%s' "$rest" | sed 's/[[:space:]]*$//')
+first=$(printf '%s' "$rest" | cut -c1)
+rest="$(printf '%s' "$first" | tr '[:lower:]' '[:upper:]')$(printf '%s' "$rest" | cut -c2-)"
+case "$rest" in
+  *.) ;;
+  *) rest="$rest." ;;
+esac
+fixed="$prefix$rest"
+
+if [ "$fixed" != "$subject" ] && [ "$(head -1 "$commit_msg_file")" = "$subject" ]; then
+  tmp_fix=$(mktemp)
+  { printf '%s\n' "$fixed"; tail -n +2 "$commit_msg_file"; } > "$tmp_fix"
+  mv "$tmp_fix" "$commit_msg_file"
+  subject="$fixed"
+  echo "commit-msg: auto-fixed subject cosmetics -> $subject" >&2
 fi
+
+if [ -n "$scopes" ]; then
+  pattern="^($types)\(($scopes)\): [A-Z].*\.$"
+else
+  pattern="^($types): [A-Z].*\.$"
+fi
+printf '%s\n' "$subject" | grep -qE -e "$pattern" || reject
