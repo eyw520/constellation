@@ -6,17 +6,4 @@
 
 ## Utilities
 
-Aggregate targets (run from root directory):
-
-- `make check` - Check all packages
-- `make lint` - Lint all packages
-- `make test` - Test all packages
-- `make typecheck` - Type check all packages
-
-## Miscellaneous
-
-Shared configuration files:
-- `ruff.toml` - Ruff linting/formatting (auto-discovered by all packages)
-- `mypy.ini` - Mypy type checking configuration
-- `pyrightconfig.json` - Pyright type checking configuration
-- `poetry.toml` - Poetry virtualenv settings
+Aggregate targets from the root: `make check|lint|test|typecheck` run over all packages.
