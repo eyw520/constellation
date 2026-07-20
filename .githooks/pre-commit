@@ -19,7 +19,7 @@ if [ -x "$hooks_dir/secret-scan" ]; then
 fi
 
 git_dir=$(git rev-parse --git-dir)
-cache="$git_dir/standards-gate-pass"
+cache="$git_dir/gate-pass"
 tree=$(git write-tree 2>/dev/null)
 worktree_matches_index() { git diff --quiet; }
 

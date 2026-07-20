@@ -20,6 +20,12 @@ commit_msg_file="$1"
 subject=$(grep -v '^#' "$commit_msg_file" | head -1)
 body=$(grep -v '^#' "$commit_msg_file" | tail -n +2 | grep -v '^[[:space:]]*$' || true)
 
+# Git-generated messages pass untouched: fixup!/squash! are consumed by
+# autosquash before reaching main, and merge/revert subjects are git's own format.
+case "$subject" in
+  'fixup! '* | 'squash! '* | 'Merge '* | 'Revert "'*) exit 0 ;;
+esac
+
 if [ -n "$body" ]; then
   echo ""
   echo "ERROR: Subject line only — no body, no Co-Authored-By or other trailers."
@@ -79,9 +85,11 @@ if [ "$fixed" != "$subject" ] && [ "$(head -1 "$commit_msg_file")" = "$subject" 
   echo "commit-msg: auto-fixed subject cosmetics -> $subject" >&2
 fi
 
+# A subject may open with a backticked identifier instead of a capital —
+# the convention backticks code names, and `x` cannot be capitalized.
 if [ -n "$scopes" ]; then
-  pattern="^($types)\(($scopes)\): [A-Z].*\.$"
+  pattern="^($types)\(($scopes)\): [A-Z\`].*\.$"
 else
-  pattern="^($types): [A-Z].*\.$"
+  pattern="^($types): [A-Z\`].*\.$"
 fi
 printf '%s\n' "$subject" | grep -qE -e "$pattern" || reject
