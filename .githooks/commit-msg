@@ -35,11 +35,11 @@ fi
 
 if [ -n "$scopes" ]; then
   prefix_pattern="^($types)\(($scopes)\): "
-  expected="<type>(<scope>): <Title case message ending with period.>"
+  expected="<type>(<scope>): <Sentence case message ending with period.>"
   example_scope="($(printf '%s' "$scopes" | cut -d'|' -f1))"
 else
   prefix_pattern="^($types): "
-  expected="<type>: <Title case message ending with period.>"
+  expected="<type>: <Sentence case message ending with period.>"
   example_scope=""
 fi
 

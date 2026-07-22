@@ -23,7 +23,7 @@ When this file and an enforcing hook disagree, the hook wins — fix whichever i
 
 ## Commit messages
 
-- Format: `<type>(<scope>): Title case ending with period.` — subject only, no trailers.
+- Format: `<type>(<scope>): Sentence case ending with period.` — subject only, no trailers.
   Some repos drop the scope; `.githooks/commit-msg` is the source of truth for exact types and scopes.
 - Base types: feat, fix, chore, clean, revert. Repos may extend.
 - Backtick code identifiers and filenames in the subject.
