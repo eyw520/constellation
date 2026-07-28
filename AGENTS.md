@@ -5,7 +5,8 @@ When this file and an enforcing hook disagree, the hook wins — fix whichever i
 
 ## First principles
 
-1. Comments and docstrings earn their place: write them only when they add what the code cannot say — the why, a non-obvious constraint — and keep them concise, dense, and evergreen.
+1. Code self-describes through naming and structure; a comment or docstring earns its place only when it adds what the code cannot say — the why, a non-obvious constraint — and then it is one line, dense, and evergreen.
+   Never narrate what the code does, the change you made, or its correctness; a comment that restates the code means delete the comment or rename the code.
 2. Never use emojis in generated code.
 3. Do not generate markdown files unless instructed to do so.
 4. Prose in Markdown is one sentence per line — never hard-wrap.
