@@ -1,6 +1,6 @@
 # Engineering Conventions
 
-Shared conventions; each repo's CLAUDE.md adds its map, invariants, and gotchas.
+Shared conventions first; the repo's own map, invariants, and gotchas follow below (CLAUDE.md stays a thin pointer here).
 When this file and an enforcing hook disagree, the hook wins — fix whichever is wrong in the same commit.
 
 ## First principles
@@ -31,3 +31,13 @@ When this file and an enforcing hook disagree, the hook wins — fix whichever i
 - One logical change per commit (one fix, one feature, one phase); a snapshot or doc truth-keeping edit rides the commit that caused it.
 - For a bug fix, land the failing test with the fix.
 - Commit locally and stop: pushing is the operator's review step.
+
+# constellation
+
+## First Principles
+
+1. Avoid `__init__.py` files - use direct imports instead.
+
+## Utilities
+
+Aggregate targets from the root: `make check|lint|test|typecheck` run over all packages.
